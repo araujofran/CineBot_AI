@@ -3,6 +3,12 @@ $projectRoot = $PSScriptRoot
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 $tunnelPath = Join-Path $projectRoot 'tools\cloudflared.exe'
 $runtimePath = Join-Path $projectRoot 'data'
+$ollamaPath = Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'
+if ((Get-Content (Join-Path $projectRoot '.env') -ErrorAction SilentlyContinue) -match '^LLM_PROVIDER=ollama$') {
+    try { Invoke-RestMethod 'http://127.0.0.1:11434/api/version' -TimeoutSec 3 | Out-Null } catch {
+        if (Test-Path -LiteralPath $ollamaPath) { Start-Process -FilePath $ollamaPath -ArgumentList 'serve' -WindowStyle Hidden }
+    }
+}
 New-Item -ItemType Directory -Path $runtimePath -Force | Out-Null
 try { $health = Invoke-RestMethod 'http://127.0.0.1:8000/health' -TimeoutSec 3 } catch { $health = $null }
 if (-not $health) {

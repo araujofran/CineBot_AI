@@ -1,4 +1,5 @@
 import json
+import asyncio
 import math
 import time
 from cinebot.domain.errors import LLMRateLimited
@@ -82,6 +83,7 @@ class TMDB:
 class OpenAILLM:
     def __init__(self, client, settings):
         self.client, self.settings = client, settings
+        self.local_slot = asyncio.Semaphore(1)
         self.cooldown_until = 0.0
         self.cooldown_estimated = False
 
@@ -90,7 +92,13 @@ class OpenAILLM:
         return max(0, math.ceil(self.cooldown_until - time.monotonic()))
 
     async def reply(self, messages, catalog):
-        provider = 'Groq' if self.settings.llm_provider == 'groq' else 'OpenAI'
+        if self.settings.llm_provider == "ollama":
+            async with self.local_slot:
+                return await self._reply(messages, catalog)
+        return await self._reply(messages, catalog)
+
+    async def _reply(self, messages, catalog):
+        provider = 'Groq' if self.settings.llm_provider == 'groq' else ('Ollama' if self.settings.llm_provider == 'ollama' else 'OpenAI')
         if self.remaining_wait:
             raise LLMRateLimited(self.remaining_wait, provider, self.cooldown_estimated)
         prompt = (
@@ -121,11 +129,16 @@ class OpenAILLM:
             payload = {'model':self.settings.llm_model, 'messages':messages, 'max_completion_tokens':900}
             if self.settings.llm_provider == 'groq' and self.settings.llm_model.startswith('openai/gpt-oss'):
                 payload['reasoning_effort'] = 'low'
+            if self.settings.llm_provider == 'ollama':
+                payload.pop('max_completion_tokens')
+                payload['max_tokens'] = 1200
+                payload['temperature'] = 0.3
+                messages[0]['content'] += ' /no_think' if not messages[0]['content'].endswith('/no_think') else ''
             if tools:
                 payload['tools'] = tools
             response = await self.client.post(self.settings.llm_url,
                 headers={'Authorization':'Bearer '+self.settings.llm_key},
-                json=payload)
+                json=payload, timeout=180 if self.settings.llm_provider == 'ollama' else 30)
             if response.status_code == 429:
                 delay, estimated = retry_delay(response)
                 self.cooldown_until = max(self.cooldown_until, time.monotonic() + delay)

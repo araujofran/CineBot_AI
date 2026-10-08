@@ -9,7 +9,9 @@ class Settings(BaseSettings):
     database_path: str = 'data/cinebot.db'
     admin_token: str = 'change-me'
     public_password: str = ''
-    llm_provider: Literal['openai', 'groq'] = 'openai'
+    llm_provider: Literal['openai', 'groq', 'ollama'] = 'openai'
+    ollama_url: str = 'http://127.0.0.1:11434'
+    ollama_model: str = 'qwen3:4b'
     groq_api_key_file: str = ''
     groq_model: str = 'openai/gpt-oss-120b'
     openai_api_key: str = ''
@@ -24,6 +26,8 @@ class Settings(BaseSettings):
 
     @property
     def llm_key(self):
+        if self.llm_provider == 'ollama':
+            return 'ollama'
         if self.llm_provider == 'groq':
             if not self.groq_api_key_file:
                 return ''
@@ -41,10 +45,14 @@ class Settings(BaseSettings):
 
     @property
     def llm_url(self):
+        if self.llm_provider == 'ollama':
+            return self.ollama_url.rstrip('/') + '/v1/chat/completions'
         return 'https://api.groq.com/openai/v1/chat/completions' if self.llm_provider == 'groq' else 'https://api.openai.com/v1/chat/completions'
 
     @property
     def llm_model(self):
+        if self.llm_provider == 'ollama':
+            return self.ollama_model
         return self.groq_model if self.llm_provider == 'groq' else self.openai_model
 
     @model_validator(mode='after')

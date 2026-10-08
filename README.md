@@ -102,3 +102,8 @@ TVMaze usa conexão HTTP reutilizada, cache de uma hora com limite de 128 entrad
 intervalo entre chamadas e recuo em caso de HTTP 429.
 Dados TVMaze atribuídos na interface e respostas: https://www.tvmaze.com/ · CC BY-SA.
 Documentação: https://www.tvmaze.com/api
+
+
+## IA local com Ollama
+
+Instale o Ollama oficial e execute `ollama pull qwen3:4b`. Configure `.env` com `LLM_PROVIDER=ollama`, `OLLAMA_URL=http://127.0.0.1:11434` e `OLLAMA_MODEL=qwen3:4b`. Inicie o Ollama antes do FastAPI. A integracao usa a API compativel com OpenAI e preserva ferramentas, memoria e autenticacao existentes. A geracao local e serializada para reduzir sobrecarga da GPU. TVMaze e TMDB continuam consultando servicos externos; disponibilidade de streaming exige fonte configurada. Nao publique a porta 11434.
