@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import secrets
 import time
+import math
 from collections import deque
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -51,7 +52,10 @@ def public_router(settings, store):
             while bucket and bucket[0] < now - 60:
                 bucket.popleft()
         if len(local) >= 10 or len(global_usage) >= 30 or slots.locked():
-            raise HTTPException(429, 'Muitas solicitações; tente novamente em um minuto')
+            delays = [max(1, math.ceil(60-(now-bucket[0]))) for bucket, limit in ((local,10),(global_usage,30)) if len(bucket)>=limit]
+            delay = max(delays) if delays else 3
+            message = f'Limite de mensagens atingido. Aguarde {delay} segundos e pergunte novamente.'
+            raise HTTPException(429, detail={'code':'app_rate_limit','message':message,'retry_after_seconds':delay,'estimated':False}, headers={'Retry-After':str(delay)})
         local.append(now)
         global_usage.append(now)
         async with slots:
@@ -59,7 +63,7 @@ def public_router(settings, store):
                 answer = await request.app.state.chat.respond(user, data.message)
             except (httpx.HTTPError, ValueError):
                 raise HTTPException(502, 'Não foi possível consultar a IA')
-        return {'answer':answer, 'demo':not settings.llm_enabled}
+        return {'answer':answer, 'demo':not settings.llm_enabled, 'recommendations':request.app.state.chat.recommendations.get(user,[])}
 
     @router.delete('/memory')
     async def forget(request: Request, user: str = Depends(visitor)):

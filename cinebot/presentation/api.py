@@ -7,7 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Depends, Query
-from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse, JSONResponse
 from pathlib import Path
 import secrets
 from cinebot.presentation.public import public_router, sign_session, session_id
@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from cinebot.infrastructure.tvmaze import CombinedCatalog
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
+from cinebot.domain.errors import LLMRateLimited
 from cinebot.application.chat import ChatService
 from cinebot.infrastructure.settings import Settings
 from cinebot.infrastructure.storage import SQLiteStore
@@ -30,6 +31,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     demo: bool
+    recommendations: list[dict] = Field(default_factory=list)
 
 def create_app(settings=None):
     settings = settings or Settings()
@@ -41,6 +43,7 @@ def create_app(settings=None):
             catalog = CombinedCatalog(client, settings)
             app.state.catalog = catalog
             llm = OpenAILLM(client, settings) if settings.llm_enabled else DemoLLM()
+            app.state.llm = llm
             app.state.chat = ChatService(store, catalog, llm)
             sender = WhatsApp(client, settings)
             async def worker():
@@ -51,7 +54,10 @@ def create_app(settings=None):
                         data = json.loads(payload)
                         try:
                             if answer is None:
-                                answer = await app.state.chat.respond(data['user'], data['text'])
+                                try:
+                                    answer = await app.state.chat.respond(data['user'], data['text'])
+                                except LLMRateLimited as exc:
+                                    answer = exc.user_message.replace(' Sua mensagem continua no campo de envio.', '')
                                 store.save_response(ident, answer)
                             await sender.send(data['user'], answer)
                             store.done(ident)
@@ -66,6 +72,11 @@ def create_app(settings=None):
                 await task
 
     app = FastAPI(title='CineBot AI', version='0.1.0', lifespan=lifespan)
+
+    @app.exception_handler(LLMRateLimited)
+    async def rate_limit_error(request, exc):
+        return JSONResponse(status_code=429, content={'detail':exc.detail()},
+                            headers={'Retry-After':str(exc.retry_after_seconds)})
 
     app.mount('/assets', StaticFiles(directory=Path(__file__).parent / 'assets'), name='assets')
 
@@ -83,8 +94,10 @@ def create_app(settings=None):
         return response
 
     @app.get('/health')
-    def health():
-        return {'status':'ok','demo':not settings.llm_enabled,'provider':settings.llm_provider if settings.llm_enabled else 'demo','catalog_enabled':bool(settings.tmdb_token) or settings.tvmaze_enabled,'tvmaze_enabled':settings.tvmaze_enabled,'movie_catalog_enabled':bool(settings.tmdb_token),'whatsapp_enabled':not settings.demo,'public_mode':bool(settings.public_password),'local_default_token':settings.admin_token == 'change-me' and not settings.public_password}
+    def health(request: Request):
+        llm = getattr(request.app.state, 'llm', None)
+        wait = getattr(llm, 'remaining_wait', 0)
+        return {'status':'ok','llm_retry_after_seconds':wait,'llm_wait_estimated':getattr(llm,'cooldown_estimated',False),'demo':not settings.llm_enabled,'provider':settings.llm_provider if settings.llm_enabled else 'demo','catalog_enabled':bool(settings.tmdb_token) or settings.tvmaze_enabled,'tvmaze_enabled':settings.tvmaze_enabled,'movie_catalog_enabled':bool(settings.tmdb_token),'whatsapp_enabled':not settings.demo,'public_mode':bool(settings.public_password),'local_default_token':settings.admin_token == 'change-me' and not settings.public_password}
 
     @app.get('/catalog/search')
     async def search_catalog(q: str = Query(min_length=2, max_length=100)):
@@ -94,6 +107,19 @@ def create_app(settings=None):
             return await app.state.catalog.tvmaze.execute('search_series', {'query':q})
         except httpx.HTTPError:
             raise HTTPException(502, 'TVMaze indisponível; tente novamente')
+
+    @app.get('/catalog/shows/{show_id}')
+    async def show_details(show_id: int):
+        if show_id <= 0:
+            raise HTTPException(422, 'ID inválido')
+        if not settings.tvmaze_enabled:
+            raise HTTPException(503, 'Catálogo indisponível')
+        try:
+            return await app.state.catalog.tvmaze.execute('series_details', {'show_id':show_id})
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(404 if exc.response.status_code == 404 else 502, 'Série não encontrada ou serviço indisponível')
+        except httpx.HTTPError:
+            raise HTTPException(502, 'TVMaze indisponível')
 
     @app.get('/catalog/featured')
     async def featured_catalog():
@@ -108,7 +134,7 @@ def create_app(settings=None):
     async def chat(data: ChatRequest):
         try:
             answer = await app.state.chat.respond(data.user_id, data.message)
-            return ChatResponse(answer=answer, demo=not settings.llm_enabled)
+            return ChatResponse(answer=answer, demo=not settings.llm_enabled, recommendations=app.state.chat.recommendations.get(data.user_id,[]))
         except (httpx.HTTPError, ValueError):
             raise HTTPException(502, 'Não foi possível consultar os serviços externos')
 

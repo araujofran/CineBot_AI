@@ -1,4 +1,8 @@
 import json
+import math
+import time
+from cinebot.domain.errors import LLMRateLimited
+from cinebot.infrastructure.limits import retry_delay
 import httpx
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -78,8 +82,17 @@ class TMDB:
 class OpenAILLM:
     def __init__(self, client, settings):
         self.client, self.settings = client, settings
+        self.cooldown_until = 0.0
+        self.cooldown_estimated = False
+
+    @property
+    def remaining_wait(self):
+        return max(0, math.ceil(self.cooldown_until - time.monotonic()))
 
     async def reply(self, messages, catalog):
+        provider = 'Groq' if self.settings.llm_provider == 'groq' else 'OpenAI'
+        if self.remaining_wait:
+            raise LLMRateLimited(self.remaining_wait, provider, self.cooldown_estimated)
         prompt = (
             'Você é CineBot, assistente de cinema em português brasileiro. Converse sem menus. '
             'Use ferramentas para dados de filmes e sempre consulte streaming antes de afirmar disponibilidade. '
@@ -113,6 +126,11 @@ class OpenAILLM:
             response = await self.client.post(self.settings.llm_url,
                 headers={'Authorization':'Bearer '+self.settings.llm_key},
                 json=payload)
+            if response.status_code == 429:
+                delay, estimated = retry_delay(response)
+                self.cooldown_until = max(self.cooldown_until, time.monotonic() + delay)
+                self.cooldown_estimated = estimated
+                raise LLMRateLimited(delay, provider, estimated)
             response.raise_for_status()
             msg = response.json()['choices'][0]['message']
             if not msg.get('tool_calls'):
