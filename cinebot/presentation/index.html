@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#181c1a"><title>CineBot — histórias que combinam com você</title><link rel="stylesheet" href="/assets/app.css?v=3"><script src="/assets/app.js?v=3" defer></script></head>
+<body>
+<aside class="sidebar">
+<a class="brand" href="/" aria-label="CineBot início"><span class="brand-icon">c<span>•</span></span><span>CineBot<small>SEU COMPANHEIRO DE CENA</small></span></a>
+<div class="nav-label">EXPLORAR</div>
+<nav><a class="nav-item active" href="#discover"><span>◈</span> Descobrir <span class="nav-dot"></span></a><a class="nav-item" href="#chat"><span>◌</span> Conversar com a IA <span>↗</span></a><button class="nav-item" id="new-chat"><span>＋</span> Nova conversa</button></nav>
+<div class="sidebar-note"><div class="tiny-star">✦</div><h3>Menos procura.<br>Mais boas histórias.</h3><p>Conte seu momento. A gente encontra a próxima cena.</p></div>
+<div class="access"><span class="nav-label">SUA SESSÃO</span><label id="user-label">Conversa<input id="user" value="visitante-local" maxlength="80"></label><label>Senha de acesso<div class="password-wrap"><input id="token" type="password" autocomplete="off" placeholder="Digite a senha"><button id="toggle-password" aria-label="Mostrar senha" type="button">◉</button></div></label><p id="access-note">A senha é fornecida por quem compartilhou o link.</p><div class="privacy"><span>♧</span> Memória individual por navegador</div></div>
+<div class="sidebar-bottom"><span class="avatar">CB</span><div>Cinema, do seu jeito<small>Feito para quem gosta de histórias</small></div></div>
+</aside>
+<main id="discover">
+<header class="topbar"><span class="breadcrumbs">DESCOBERTA <span>/</span> SUA PRÓXIMA HISTÓRIA</span><span class="connection" id="mode"><i></i> Conectando</span></header>
+<div class="workspace">
+<section class="discovery">
+<div class="hero"><span class="eyebrow"><span></span> BOAS HISTÓRIAS, BOAS CONVERSAS</span><h1>Uma boa história.<br>Sua próxima <em>obsessão.</em></h1><p>Filmes e séries para o seu gosto, seu humor<br class="desktop-break"> e aquele “só mais um episódio”.</p><div class="hero-bottom"><button class="primary" id="hero-chat">Encontre minha próxima história <span>↗</span></button><span class="hero-caption">Sem menus.<br>Só uma boa conversa.</span></div><span class="hero-art" aria-hidden="true">✳</span></div>
+<div class="section-heading"><div><span class="eyebrow subdued">O QUE VAMOS ASSISTIR?</span><h2>Uma pista para começar</h2></div><span class="section-count">01 / DESCUBRA</span></div>
+<div class="moods"><button data-prompt="Quero uma série de suspense que me prenda desde o primeiro episódio. Consulte o TVMaze."><span>◒</span> Um bom suspense</button><button data-prompt="Quero uma série leve e divertida para relaxar. Consulte o TVMaze."><span>☀</span> Algo mais leve</button><button data-prompt="Recomende séries de ficção científica com uma história surpreendente. Consulte o TVMaze."><span>✧</span> Fora deste mundo</button></div>
+<section class="catalog" aria-labelledby="catalog-title"><div class="section-heading"><div><span class="eyebrow subdued">DIRETO DO CATÁLOGO</span><h2 id="catalog-title">Histórias para conhecer</h2></div><a href="https://www.tvmaze.com/" target="_blank" rel="noopener noreferrer" class="source-link">TVMaze ↗</a></div>
+<form id="search-form" class="search-bar"><span aria-hidden="true">⌕</span><input id="search" placeholder="Busque uma série: Dark, The Bear, Breaking Bad..." minlength="2" maxlength="100" aria-label="Buscar séries por título" required><button id="search-button" type="submit">Buscar <span>↗</span></button></form>
+<div class="catalog-info"><span id="catalog-status" role="status">Carregando histórias do TVMaze...</span><button id="reset-search" hidden>Voltar aos destaques</button></div>
+<div id="cards" class="cards" aria-live="polite"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+<div class="catalog-footer"><span>Dados de séries: <a href="https://www.tvmaze.com/" target="_blank" rel="noopener noreferrer">TVMaze</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA</a></span><span>Uma nova história está esperando por você.</span></div></section>
+</section>
+<aside class="chat-panel" id="chat"><header class="chat-header"><span class="assistant-icon">✦</span><div>Seu próximo play<small>Uma conversa com o CineBot</small></div><button id="forget" title="Apagar memória e começar novamente" aria-label="Apagar memória">↺</button></header>
+<div id="messages" role="log" aria-live="polite"><div class="welcome"><div class="welcome-symbol">✦</div><span class="eyebrow subdued">BEM-VINDO À SUA SESSÃO</span><h2>O que você quer<br>sentir hoje?</h2><p>Um suspense que te prende?<br>Uma comédia para desligar?<br>Me conta. Eu ajudo a escolher.</p><div class="welcome-line"></div><span class="welcome-foot">SEU GOSTO É O NOSSO ROTEIRO.</span></div></div>
+<div id="typing" class="typing" hidden><span></span><span></span><span></span> CineBot está buscando uma boa história</div>
+<div class="composer-area"><div id="status" role="status"></div><form id="form"><textarea id="text" placeholder="Me conta o que você está procurando..." maxlength="4000" aria-label="Mensagem para CineBot" rows="2" required></textarea><div class="composer-footer"><span>Enter para enviar · Shift + Enter para nova linha</span><button id="send" aria-label="Enviar mensagem" type="submit">↑</button></div></form><p class="chat-disclaimer" id="note">Séries consultadas no TVMaze. Streaming no Brasil não confirmado.</p></div></aside>
+</div><footer class="page-footer"><span>CineBot <span class="footer-dot">•</span> O próximo play começa aqui.</span><span>FILMES. SÉRIES. BOAS CONVERSAS.</span></footer>
+</main></body></html>
